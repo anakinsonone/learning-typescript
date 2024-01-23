@@ -7,7 +7,7 @@ type BasicProcessedEvent<T> = {
   data: T[keyof T];
 };
 
-class EventProcessor<T extends object> {
+class BasicEventProcessor<T extends object> {
   private filters: BasicFilters<T> = <BasicFilters<T>>{};
   private maps: BasicMaps<T> = <BasicMaps<T>>{};
   private processed: BasicProcessedEvent<T>[] = [];
@@ -55,7 +55,7 @@ interface BasicEventMap {
   logout: { user?: string };
 }
 
-class BasicUserEventProcessor extends EventProcessor<BasicEventMap> {}
+class BasicUserEventProcessor extends BasicEventProcessor<BasicEventMap> {}
 
 const buep = new BasicUserEventProcessor();
 
