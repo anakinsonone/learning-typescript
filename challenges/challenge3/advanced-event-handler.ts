@@ -1,23 +1,62 @@
+type MyMap<T> = (data: T) => T;
+type Filter<T> = (data: T) => boolean;
 type Handler<T> = {
-  [Property in keyof T as `map${Capitalize<string & Property>}`]?: (data: T[Property]) => T[Property];
+  [Property in keyof T as `map${Capitalize<string & Property>}`]?: MyMap<
+    T[Property]
+  >;
 } & {
-    [Property in keyof T as `filter${Capitalize<string & Property>}`]?: (data: T[Property]) => boolean;
-  }
+  [Property in keyof T as `filter${Capitalize<string & Property>}`]?: Filter<
+    T[Property]
+  >;
+};
 type ProcessedEvent<T> = {
-  eventName: keyof T,
-  data: T[keyof T],
-}
+  eventName: keyof T;
+  data: T[keyof T];
+};
 
 class EventProcessor<T extends object> {
   private processed: ProcessedEvent<T>[] = [];
-  handleEvent(eventName: ..., data: ...): void {
+  private handlers: Handler<T>[] = [];
+
+  handleEvent<K extends keyof T>(eventName: K, data: T[K]): void {
+    let allowEvent = true;
+
+    const capitalize = (s: string) =>
+      `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
+
+    for (const handler of this.handlers) {
+      const filterFunc = handler[
+        `filter${capitalize(<string>eventName)}` as keyof Handler<T>
+      ] as unknown as ((value: T[K]) => boolean) | undefined;
+      if (filterFunc && !filterFunc(data)) {
+        allowEvent = false;
+        break;
+      }
+      if (allowEvent) {
+        let mappedData = { ...data };
+        for (const handler of this.handlers) {
+          const mapFunc = handler[
+            `map${capitalize(<string>eventName)}` as keyof Handler<T>
+          ] as unknown as ((value: T[K]) => T[K]) | undefined;
+          if (mapFunc) {
+            mappedData = <T[K]>mapFunc(mappedData);
+          }
+        }
+        this.processed.push({
+          eventName,
+          data: mappedData,
+        });
+      }
+    }
   }
 
   addHandler(handler: Handler<T>): void {
+    this.handlers.push(handler);
   }
 
-  getProcessedEvents(): ...[] {
-}
+  getProcessedEvents() {
+    return this.processed;
+  }
 }
 
 interface EventMap {
@@ -25,7 +64,7 @@ interface EventMap {
   logout: { user?: string };
 }
 
-class UserEventProcessor extends EventProcessor<EventMap> { }
+class UserEventProcessor extends EventProcessor<EventMap> {}
 
 const uep = new UserEventProcessor();
 uep.addHandler({
@@ -37,7 +76,6 @@ uep.addHandler({
 });
 
 uep.handleEvent("login", {
-  user: null,
   name: "jack",
 });
 uep.handleEvent("login", {
